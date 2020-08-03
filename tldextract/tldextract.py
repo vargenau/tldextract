@@ -36,6 +36,17 @@ subdomain or a valid suffix.
 
     >>> tldextract.extract('http://127.0.0.1:8080/deployed/')
     ExtractResult(subdomain='', domain='127.0.0.1', suffix='')
+
+If you want to rejoin the whole namedtuple, regardless of whether a subdomain
+or suffix were found:
+
+    >>> ext = tldextract.extract('http://127.0.0.1:8080/deployed/')
+    >>> # this has unwanted dots
+    >>> '.'.join(ext)
+    '.127.0.0.1.'
+    >>> # join part only if truthy
+    >>> '.'.join(part for part in ext if part)
+    '127.0.0.1'
 """
 
 import collections
