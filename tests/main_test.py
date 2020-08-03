@@ -25,7 +25,7 @@ extract_using_fallback_to_snapshot_no_cache = tldextract.TLDExtract(
 # pylint: enable=invalid-name
 
 
-def assert_extract(
+def assert_extract(  # pylint: disable=missing-docstring
         url,
         expected_domain_data,
         expected_ip_data='',
@@ -72,6 +72,11 @@ def test_nested_subdomain():
 def test_odd_but_possible():
     assert_extract('http://www.www.com', ('www.www.com', 'www', 'www', 'com'))
     assert_extract('http://www.com', ('www.com', '', 'www', 'com'))
+
+
+def test_suffix():
+    assert_extract('com', ('', '', '', 'com'))
+    assert_extract('co.uk', ('', '', '', 'co.uk'))
 
 
 def test_local_host():

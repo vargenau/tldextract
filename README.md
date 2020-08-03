@@ -1,6 +1,6 @@
 # tldextract
 
-## Python Module [![PyPI version](https://badge.fury.io/py/tldextract.svg)](https://badge.fury.io/py/tldextract) [![Build Status](https://travis-ci.org/john-kurkowski/tldextract.svg?branch=master)](https://travis-ci.org/john-kurkowski/tldextract)
+## Python Module [![PyPI version](https://badge.fury.io/py/tldextract.svg)](https://badge.fury.io/py/tldextract) [![Build Status](https://travis-ci.com/john-kurkowski/tldextract.svg?branch=master)](https://travis-ci.com/john-kurkowski/tldextract)
 
 `tldextract` accurately separates the gTLD or ccTLD (generic or country code
 top-level domain) from the registered domain and subdomains of a URL. For
@@ -256,5 +256,5 @@ Run all tests against a specific Python environment configuration:
 
 ```zsh
 tox -l
-tox -e py35-requests-2.9.1
+tox -e py37
 ```

@@ -20,8 +20,6 @@ else:  # pragma: no cover
 
 IP_RE = re.compile(r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$')  # pylint: disable=line-too-long
 
-PUNY_RE = re.compile(r'^xn--', re.IGNORECASE)
-
 SCHEME_RE = re.compile(r'^([' + scheme_chars + ']+:)?//')
 
 LOG = logging.getLogger('tldextract')
@@ -36,14 +34,15 @@ def find_first_response(urls, cache_fetch_timeout=None):
 
         for url in urls:
             try:
-                text = session.get(url, timeout=cache_fetch_timeout).text
+                resp = session.get(url, timeout=cache_fetch_timeout)
+                resp.raise_for_status()
             except requests.exceptions.RequestException:
                 LOG.exception(
                     'Exception reading Public Suffix List url %s',
                     url
                 )
             else:
-                return _decode_utf8(text)
+                return _decode_utf8(resp.text)
 
     LOG.error(
         'No Public Suffix List found. Consider using a mirror or constructing '
@@ -59,8 +58,7 @@ def _decode_utf8(text):
     """
     if not isinstance(text, unicode):
         return unicode(text, 'utf-8')
-    else:
-        return text
+    return text
 
 
 def looks_like_ip(maybe_ip):

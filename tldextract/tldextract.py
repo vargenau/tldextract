@@ -41,31 +41,15 @@ subdomain or a valid suffix.
 import collections
 import logging
 import os
+import pkgutil
 import re
-from contextlib import closing
 from functools import wraps
 
 import idna
 
-try:
-    import pkg_resources
-except ImportError:
-    class pkg_resources(object):  # pylint: disable=invalid-name
-
-        """Fake pkg_resources interface which falls back to getting resources
-        inside `tldextract`'s directory.
-        """
-
-        @classmethod
-        def resource_stream(cls, _, resource_name):
-            moddir = os.path.dirname(__file__)
-            path = os.path.join(moddir, resource_name)
-            return open(path)
-
 from .remote import find_first_response
 from .remote import looks_like_ip
 from .remote import IP_RE
-from .remote import PUNY_RE
 from .remote import SCHEME_RE
 from .utils import cache_to_jsonfile
 
@@ -170,9 +154,8 @@ class TLDExtract(object):
         requests, set this to something falsy.
 
         The default list of URLs point to the latest version of the Mozilla Public Suffix List and
-        its mirror, but any similar document could be specified.
-
-        Local files can be specified by using the `file://` protocol. (See `urllib2` documentation.)
+        its mirror, but any similar document could be specified. Local files can be specified by
+        using the `file://` protocol. (See `urllib2` documentation.)
 
         If there is no cached version loaded and no data is found from the `suffix_list_urls`,
         the module will fall back to the included TLD set snapshot. If you do not want
@@ -245,15 +228,7 @@ class TLDExtract(object):
 
         labels = netloc.split(".")
 
-        def decode_punycode(label):
-            if PUNY_RE.match(label):
-                try:
-                    return idna.decode(label.encode('ascii'))
-                except UnicodeError:
-                    pass
-            return label
-
-        translations = [decode_punycode(label).lower() for label in labels]
+        translations = [_decode_punycode(label).lower() for label in labels]
         if not include_psl_private_domains:
             excluded_list_names = [SOURCE_PUBLICSUFFIX_PRIVATE]
         else:
@@ -263,13 +238,12 @@ class TLDExtract(object):
             excluded_list_names=excluded_list_names
         )
 
-        registered_domain = ".".join(labels[:suffix_index])
         suffix = ".".join(labels[suffix_index:])
-
         if not suffix and netloc and looks_like_ip(netloc):
             return ExtractResult('', netloc, '')
 
-        subdomain, _, domain = registered_domain.rpartition('.')
+        subdomain = ".".join(labels[:suffix_index - 1]) if suffix_index else ""
+        domain = labels[suffix_index - 1] if suffix_index else ""
         return ExtractResult(subdomain, domain, suffix)
 
     def update(self, fetch_now=False):
@@ -308,14 +282,14 @@ class TLDExtract(object):
                 suffix_list_sources=self.suffix_list_urls,
                 cache_fetch_timeout=self.cache_fetch_timeout
             )
-            suffix_count = sum([len(l) for l in suffix_lists.values()])
+            suffix_count = sum([len(li) for li in suffix_lists.values()])
             if not suffix_count and self.fallback_to_snapshot:
                 # use included snapshot list
                 suffix_lists = self._get_snapshot_tld_extractor()
 
             suffix_lists[SOURCE_EXTRA_SUFFIXES] = self.extra_suffixes
 
-            suffix_count = sum([len(l) for l in suffix_lists.values()])
+            suffix_count = sum([len(li) for li in suffix_lists.values()])
             if not suffix_count:
                 raise Exception("tlds is empty, but fallback_to_snapshot is set"
                                 " to false. Cannot proceed without tlds.")
@@ -325,9 +299,8 @@ class TLDExtract(object):
 
     @staticmethod
     def _get_snapshot_tld_extractor():
-        snapshot_stream = pkg_resources.resource_stream(__name__, '.tld_set_snapshot')
-        with closing(snapshot_stream) as snapshot_file:
-            return get_tlds_from_raw_suffix_list_data(snapshot_file.read().decode('utf-8'))
+        snapshot_data = pkgutil.get_data(__name__, '.tld_set_snapshot')
+        return get_tlds_from_raw_suffix_list_data(snapshot_data.decode('utf-8'))
 
 
 TLD_EXTRACTOR = TLDExtract()
@@ -361,6 +334,9 @@ def get_remote_suffix_lists(suffix_list_sources, cache_fetch_timeout):
 
 
 class _SuffixListTLDExtractor(object):
+    """Wrapper around this project's main algo for PSL
+    lookups.
+    """
 
     def __init__(self, suffix_lists):
         self.suffix_lists = {k: frozenset(l) for k, l in suffix_lists.items()}
@@ -372,7 +348,8 @@ class _SuffixListTLDExtractor(object):
         usable_suffix_lists = [
             (n, l) for n, l in self.suffix_lists.items() if n not in excluded_list_names
         ]
-        for i in range(len(lower_spl)):
+        length = len(lower_spl)
+        for i in range(length):
             for source_name, suffix_list in usable_suffix_lists:
                 maybe_tld = '.'.join(lower_spl[i:])
                 exception_tld = '!' + maybe_tld
@@ -389,4 +366,15 @@ class _SuffixListTLDExtractor(object):
                 if wildcard_tld in suffix_list:
                     return i, source_name
 
-        return len(lower_spl), ''
+        return length, ''
+
+
+def _decode_punycode(label):
+    lowered = label.lower()
+    looks_like_puny = lowered.startswith('xn--')
+    if looks_like_puny:
+        try:
+            return idna.decode(label.encode('ascii')).lower()
+        except UnicodeError:
+            pass
+    return lowered
