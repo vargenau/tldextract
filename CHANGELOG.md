@@ -3,6 +3,16 @@
 After upgrading, update your cache file by deleting it or via `tldextract
 --update`.
 
+## Unreleased
+
+* Breaking Changes
+    * Rename `cache_file` to `cache_dir` as it is no longer a single file but a directory ([#144](https://github.com/john-kurkowski/tldextract/issues/144))
+        * Remove `--cache_file` CLI arg
+* Features
+    * Can pass `include_psl_private_domains` on call, not only on construction
+* Bugfixes
+    * Select public or private suffixes at runtime. Fixes [#66](https://github.com/john-kurkowski/tldextract/issues/66).
+
 ## 2.2.2 (2019-10-15)
 
 * Bugfixes
